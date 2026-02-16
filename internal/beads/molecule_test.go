@@ -380,8 +380,9 @@ Follow the existing patterns.`
 
 func TestValidateMolecule_Valid(t *testing.T) {
 	mol := &Issue{
-		ID:   "mol-xyz",
-		Type: "molecule",
+		ID:     "mol-xyz",
+		Type:   "molecule",
+		Labels: []string{"gt:molecule"},
 		Description: `## Step: design
 Plan the work.
 
@@ -413,6 +414,7 @@ func TestValidateMolecule_NoSteps(t *testing.T) {
 	mol := &Issue{
 		ID:          "mol-xyz",
 		Type:        "molecule",
+		Labels:      []string{"gt:molecule"},
 		Description: "Just some description without steps.",
 	}
 
@@ -424,8 +426,9 @@ func TestValidateMolecule_NoSteps(t *testing.T) {
 
 func TestValidateMolecule_DuplicateRef(t *testing.T) {
 	mol := &Issue{
-		ID:   "mol-xyz",
-		Type: "molecule",
+		ID:     "mol-xyz",
+		Type:   "molecule",
+		Labels: []string{"gt:molecule"},
 		Description: `## Step: design
 Plan the work.
 
@@ -441,8 +444,9 @@ Plan again.`,
 
 func TestValidateMolecule_UnknownDependency(t *testing.T) {
 	mol := &Issue{
-		ID:   "mol-xyz",
-		Type: "molecule",
+		ID:     "mol-xyz",
+		Type:   "molecule",
+		Labels: []string{"gt:molecule"},
 		Description: `## Step: implement
 Write code.
 Needs: nonexistent`,
@@ -456,8 +460,9 @@ Needs: nonexistent`,
 
 func TestValidateMolecule_SelfDependency(t *testing.T) {
 	mol := &Issue{
-		ID:   "mol-xyz",
-		Type: "molecule",
+		ID:     "mol-xyz",
+		Type:   "molecule",
+		Labels: []string{"gt:molecule"},
 		Description: `## Step: implement
 Write code.
 Needs: implement`,
@@ -541,8 +546,9 @@ Has content.`
 func TestValidateMolecule_SimpleCycle(t *testing.T) {
 	// A -> B -> A (simple 2-node cycle)
 	mol := &Issue{
-		ID:   "mol-xyz",
-		Type: "molecule",
+		ID:     "mol-xyz",
+		Type:   "molecule",
+		Labels: []string{"gt:molecule"},
 		Description: `## Step: a
 First step.
 Needs: b
@@ -564,8 +570,9 @@ Needs: a`,
 func TestValidateMolecule_LongerCycle(t *testing.T) {
 	// A -> B -> C -> A (3-node cycle)
 	mol := &Issue{
-		ID:   "mol-xyz",
-		Type: "molecule",
+		ID:     "mol-xyz",
+		Type:   "molecule",
+		Labels: []string{"gt:molecule"},
 		Description: `## Step: a
 First step.
 Needs: c
@@ -592,8 +599,9 @@ func TestValidateMolecule_DiamondNoCycle(t *testing.T) {
 	// Diamond pattern: A -> B, A -> C, B -> D, C -> D
 	// This has no cycle, should pass
 	mol := &Issue{
-		ID:   "mol-xyz",
-		Type: "molecule",
+		ID:     "mol-xyz",
+		Type:   "molecule",
+		Labels: []string{"gt:molecule"},
 		Description: `## Step: a
 Root step.
 
@@ -619,8 +627,9 @@ Needs: b, c`,
 func TestValidateMolecule_CycleInSubgraph(t *testing.T) {
 	// Root -> A, A -> B -> C -> A (cycle not involving root)
 	mol := &Issue{
-		ID:   "mol-xyz",
-		Type: "molecule",
+		ID:     "mol-xyz",
+		Type:   "molecule",
+		Labels: []string{"gt:molecule"},
 		Description: `## Step: root
 Starting point.
 
