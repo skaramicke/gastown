@@ -63,6 +63,7 @@ var beadsExemptCommands = map[string]bool{
 	"tap":        true,
 	"dnd":        true,
 	"signal":        true, // Hook signal handlers must be fast, handle beads internally
+	"wl":            true, // Wasteland talks to Dolt directly
 	"krc":           true, // KRC doesn't require beads
 	"run-migration": true, // Migration orchestrator handles its own beads checks
 }
