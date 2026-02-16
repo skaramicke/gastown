@@ -1567,6 +1567,77 @@ func TestDefaultConfig_MaxConnections(t *testing.T) {
 	}
 }
 
+func TestConfig_IsRemote(t *testing.T) {
+	tests := []struct {
+		host string
+		want bool
+	}{
+		{"", false},
+		{"127.0.0.1", false},
+		{"localhost", false},
+		{"192.168.1.100", true},
+		{"dolt.example.com", true},
+		{"10.0.0.5", true},
+	}
+	for _, tt := range tests {
+		c := &Config{Host: tt.host}
+		if got := c.IsRemote(); got != tt.want {
+			t.Errorf("Config{Host: %q}.IsRemote() = %v, want %v", tt.host, got, tt.want)
+		}
+	}
+}
+
+func TestDefaultConfig_HostFromDaemonConfig(t *testing.T) {
+	t.Run("no daemon config defaults to local", func(t *testing.T) {
+		townRoot := t.TempDir()
+		config := DefaultConfig(townRoot)
+		if config.Host != "127.0.0.1" {
+			t.Errorf("Host = %q, want 127.0.0.1", config.Host)
+		}
+		if config.IsRemote() {
+			t.Error("expected IsRemote() = false for default config")
+		}
+	})
+
+	t.Run("daemon config with local host", func(t *testing.T) {
+		townRoot := t.TempDir()
+		mayorDir := filepath.Join(townRoot, "mayor")
+		if err := os.MkdirAll(mayorDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		daemonJSON := `{"patrols":{"dolt_server":{"host":"127.0.0.1"}}}`
+		if err := os.WriteFile(filepath.Join(mayorDir, "daemon.json"), []byte(daemonJSON), 0644); err != nil {
+			t.Fatal(err)
+		}
+		config := DefaultConfig(townRoot)
+		if config.Host != "127.0.0.1" {
+			t.Errorf("Host = %q, want 127.0.0.1", config.Host)
+		}
+		if config.IsRemote() {
+			t.Error("expected IsRemote() = false for localhost")
+		}
+	})
+
+	t.Run("daemon config with remote host", func(t *testing.T) {
+		townRoot := t.TempDir()
+		mayorDir := filepath.Join(townRoot, "mayor")
+		if err := os.MkdirAll(mayorDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		daemonJSON := `{"patrols":{"dolt_server":{"host":"192.168.1.50","port":3307}}}`
+		if err := os.WriteFile(filepath.Join(mayorDir, "daemon.json"), []byte(daemonJSON), 0644); err != nil {
+			t.Fatal(err)
+		}
+		config := DefaultConfig(townRoot)
+		if config.Host != "192.168.1.50" {
+			t.Errorf("Host = %q, want 192.168.1.50", config.Host)
+		}
+		if !config.IsRemote() {
+			t.Error("expected IsRemote() = true for remote host")
+		}
+	})
+}
+
 func TestHasConnectionCapacity_ZeroMax(t *testing.T) {
 	// When MaxConnections is 0, the function should use Dolt default (1000).
 	// Since we can't connect to a real server in unit tests, we just verify

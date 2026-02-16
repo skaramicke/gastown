@@ -680,15 +680,26 @@ func runDoltList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(databases) == 0 {
-		fmt.Printf("No rig databases found in %s\n", config.DataDir)
-		fmt.Printf("\nInitialize with: %s\n", style.Dim.Render("gt dolt init-rig <name>"))
+		if config.IsRemote() {
+			fmt.Printf("No rig databases found on remote server %s\n", config.Host)
+		} else {
+			fmt.Printf("No rig databases found in %s\n", config.DataDir)
+			fmt.Printf("\nInitialize with: %s\n", style.Dim.Render("gt dolt init-rig <name>"))
+		}
 		return nil
 	}
 
-	fmt.Printf("Rig databases in %s:\n\n", config.DataDir)
-	for _, db := range databases {
-		dbDir := doltserver.RigDatabaseDir(townRoot, db)
-		fmt.Printf("  %s\n    %s\n", style.Bold.Render(db), style.Dim.Render(dbDir))
+	if config.IsRemote() {
+		fmt.Printf("Rig databases on %s:%d:\n\n", config.Host, config.Port)
+		for _, db := range databases {
+			fmt.Printf("  %s\n", style.Bold.Render(db))
+		}
+	} else {
+		fmt.Printf("Rig databases in %s:\n\n", config.DataDir)
+		for _, db := range databases {
+			dbDir := doltserver.RigDatabaseDir(townRoot, db)
+			fmt.Printf("  %s\n    %s\n", style.Bold.Render(db), style.Dim.Render(dbDir))
+		}
 	}
 
 	return nil

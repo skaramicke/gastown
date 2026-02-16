@@ -146,6 +146,9 @@ type Config struct {
 	// Port is the MySQL protocol port.
 	Port int
 
+	// Host is the server bind address (default "127.0.0.1").
+	Host string
+
 	// User is the MySQL user name.
 	User string
 
@@ -165,18 +168,56 @@ type Config struct {
 	MaxConnections int
 }
 
+// IsRemote returns true if the Dolt server is on a remote host
+// (i.e., not localhost or 127.0.0.1).
+func (c *Config) IsRemote() bool {
+	if c.Host == "" || c.Host == "127.0.0.1" || c.Host == "localhost" {
+		return false
+	}
+	return true
+}
+
 // DefaultConfig returns the default Dolt server configuration.
+// It reads mayor/daemon.json to detect remote server host if configured.
 func DefaultConfig(townRoot string) *Config {
 	daemonDir := filepath.Join(townRoot, "daemon")
+	host := "127.0.0.1"
+
+	// Read host from daemon config if available.
+	if h := readDaemonDoltHost(townRoot); h != "" {
+		host = h
+	}
+
 	return &Config{
 		TownRoot:       townRoot,
 		Port:           DefaultPort,
+		Host:           host,
 		User:           DefaultUser,
 		DataDir:        filepath.Join(townRoot, ".dolt-data"),
 		LogFile:        filepath.Join(daemonDir, "dolt.log"),
 		PidFile:        filepath.Join(daemonDir, "dolt.pid"),
 		MaxConnections: DefaultMaxConnections,
 	}
+}
+
+// readDaemonDoltHost reads the dolt_server.host from mayor/daemon.json.
+// Returns empty string if the file doesn't exist or host is not configured.
+func readDaemonDoltHost(townRoot string) string {
+	data, err := os.ReadFile(filepath.Join(townRoot, "mayor", "daemon.json"))
+	if err != nil {
+		return ""
+	}
+	var cfg struct {
+		Patrols struct {
+			DoltServer struct {
+				Host string `json:"host"`
+			} `json:"dolt_server"`
+		} `json:"patrols"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return ""
+	}
+	return cfg.Patrols.DoltServer.Host
 }
 
 // RigDatabaseDir returns the database directory for a specific rig.
