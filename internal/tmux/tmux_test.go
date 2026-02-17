@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -1947,5 +1948,67 @@ func TestNewSessionSet_Nil(t *testing.T) {
 
 	if set.Has("anything") {
 		t.Error("Nil-input SessionSet.Has() = true, want false")
+	}
+}
+
+func TestGtSessionPattern(t *testing.T) {
+	pattern := gtSessionPattern()
+
+	// Must always match hq- and gt- at minimum
+	if !strings.Contains(pattern, "hq") {
+		t.Errorf("pattern %q missing hq prefix", pattern)
+	}
+	if !strings.Contains(pattern, "gt") {
+		t.Errorf("pattern %q missing gt prefix", pattern)
+	}
+
+	// Must be a valid grep -E pattern
+	if !strings.HasPrefix(pattern, "^(") || !strings.HasSuffix(pattern, ")-") {
+		t.Errorf("pattern %q has unexpected format, want ^(...)-", pattern)
+	}
+}
+
+func TestReadRigPrefixes_NoGTRoot(t *testing.T) {
+	t.Setenv("GT_ROOT", "")
+	result := readRigPrefixes()
+	if result != nil {
+		t.Errorf("readRigPrefixes() with empty GT_ROOT = %v, want nil", result)
+	}
+}
+
+func TestReadRigPrefixes_InvalidPath(t *testing.T) {
+	t.Setenv("GT_ROOT", "/nonexistent/path")
+	result := readRigPrefixes()
+	if result != nil {
+		t.Errorf("readRigPrefixes() with bad path = %v, want nil", result)
+	}
+}
+
+func TestReadRigPrefixes_ValidRigsJSON(t *testing.T) {
+	dir := t.TempDir()
+	mayorDir := filepath.Join(dir, "mayor")
+	if err := os.MkdirAll(mayorDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	rigsJSON := `{"rigs":{"gastown":{"beads":{"prefix":"gt"}},"beads":{"beads":{"prefix":"bd"}},"hop":{"beads":{"prefix":"hop"}}}}`
+	if err := os.WriteFile(filepath.Join(mayorDir, "rigs.json"), []byte(rigsJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GT_ROOT", dir)
+
+	result := readRigPrefixes()
+	if result == nil {
+		t.Fatal("readRigPrefixes() = nil, want prefixes")
+	}
+	// Should contain hq + all rig prefixes
+	expected := map[string]bool{"hq": true, "gt": true, "bd": true, "hop": true}
+	got := map[string]bool{}
+	for _, p := range result {
+		got[p] = true
+	}
+	for k := range expected {
+		if !got[k] {
+			t.Errorf("missing prefix %q in result %v", k, result)
+		}
 	}
 }
