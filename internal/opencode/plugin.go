@@ -38,3 +38,8 @@ func EnsurePluginAt(workDir, pluginDir, pluginFile string) error {
 
 	return nil
 }
+
+// PluginPathComponents returns the directory and filename for the opencode plugin.
+func PluginPathComponents() (string, string) {
+	return ".opencode/plugins", "gastown.js"
+}

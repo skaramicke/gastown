@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/steveyegge/gastown/internal/constants"
+	"github.com/steveyegge/gastown/internal/opencode"
 )
 
 // resolveConfigMu serializes agent config resolution across all callers.
@@ -1781,6 +1782,18 @@ func BuildStartupCommand(envVars map[string]string, rigPath, prompt string) stri
 		resolvedEnv[k] = v
 	}
 
+	if rc.ResolvedAgent == string(AgentOpenCode) {
+		// Ensure the opencode plugin is available and add flags.
+		pluginDir, pluginFile := opencode.PluginPathComponents()
+		workDir := townRoot
+		if rigPath != "" {
+			workDir = rigPath
+		}
+		// EnsurePluginAt is best-effort here. Errors are logged by the opencode package.
+		_ = opencode.EnsurePluginAt(workDir, pluginDir, pluginFile)
+		rc.Args = append(rc.Args, "--plugin-dir", pluginDir, "--plugin", pluginFile)
+	}
+
 	SanitizeAgentEnv(resolvedEnv, envVars)
 
 	// Build environment export prefix
@@ -1788,8 +1801,6 @@ func BuildStartupCommand(envVars map[string]string, rigPath, prompt string) stri
 	for k, v := range resolvedEnv {
 		exports = append(exports, fmt.Sprintf("%s=%s", k, ShellQuote(v)))
 	}
-
-	// Sort for deterministic output
 	sort.Strings(exports)
 
 	var cmd string
@@ -1955,6 +1966,18 @@ func BuildStartupCommandWithAgentOverride(envVars map[string]string, rigPath, pr
 	// Merge agent-specific env vars (e.g., OPENCODE_PERMISSION for yolo mode)
 	for k, v := range rc.Env {
 		resolvedEnv[k] = v
+	}
+
+	if agentForProcess == string(AgentOpenCode) {
+		// Ensure the opencode plugin is available and add flags.
+		pluginDir, pluginFile := opencode.PluginPathComponents()
+		workDir := townRoot
+		if rigPath != "" {
+			workDir = rigPath
+		}
+		// EnsurePluginAt is best-effort here. Errors are logged by the opencode package.
+		_ = opencode.EnsurePluginAt(workDir, pluginDir, pluginFile)
+		rc.Args = append(rc.Args, "--plugin-dir", pluginDir, "--plugin", pluginFile)
 	}
 
 	SanitizeAgentEnv(resolvedEnv, envVars)
