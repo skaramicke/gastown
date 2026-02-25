@@ -94,6 +94,8 @@ func (g *Git) run(args ...string) (string, error) {
 	if g.workDir != "" {
 		cmd.Dir = g.workDir
 	}
+	// Ensure system-wide git config (including global insteadOf rules) does not affect behavior
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1")
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -398,7 +400,7 @@ func (g *Git) Pull(remote, branch string) error {
 // This is useful for read-only upstream repos where you want to push to a fork.
 // Example: ConfigurePushURL("origin", "https://github.com/user/fork.git")
 func (g *Git) ConfigurePushURL(remote, pushURL string) error {
-	_, err := g.run("remote", "set-url", remote, "--push", pushURL)
+	_, err := g.run("config", "--replace-all", fmt.Sprintf("remote.%s.pushurl", remote), pushURL)
 	return err
 }
 
@@ -426,7 +428,17 @@ func (g *Git) ClearPushURL(remote string) error {
 // Note: git returns the fetch URL when no custom push URL is configured, so this
 // never returns empty for a valid remote. Compare with RemoteURL to detect custom push URLs.
 func (g *Git) GetPushURL(remote string) (string, error) {
-	out, err := g.run("remote", "get-url", "--push", remote)
+	// First, try to get an explicit pushurl configured.
+	out, err := g.run("config", "--get-all", fmt.Sprintf("remote.%s.pushurl", remote))
+	if err == nil && strings.TrimSpace(out) != "" {
+		// Return the first pushurl if multiple are set.
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		return strings.TrimSpace(lines[0]), nil
+	}
+	// No explicit pushurl; fallback to the fetch URL as stored in config.
+	// Using git config avoids any global url rewriting (insteadOf) that `git remote get-url`
+	// might apply, ensuring we return the exact URL originally set.
+	out, err = g.run("config", "--get", fmt.Sprintf("remote.%s.url", remote))
 	if err != nil {
 		return "", err
 	}
@@ -476,10 +488,10 @@ func (g *Git) CommitAll(message string) error {
 
 // GitStatus represents the status of the working directory.
 type GitStatus struct {
-	Clean    bool
-	Modified []string
-	Added    []string
-	Deleted  []string
+	Clean     bool
+	Modified  []string
+	Added     []string
+	Deleted   []string
 	Untracked []string
 }
 
@@ -1210,8 +1222,8 @@ type UncommittedWorkStatus struct {
 	StashCount            int
 	UnpushedCommits       int
 	// Details for error messages
-	ModifiedFiles   []string
-	UntrackedFiles  []string
+	ModifiedFiles  []string
+	UntrackedFiles []string
 }
 
 // Clean returns true if there is no uncommitted work.
